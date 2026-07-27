@@ -1,0 +1,25 @@
+[Unit]
+Description=CyberDeck Pi4 UPS Daemon (GeeekPi V5)
+Documentation=https://github.com/your-org/cyberdeck-pi4-ups-addon
+After=network.target cyberdeck-pi4.service
+Wants=cyberdeck-pi4.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/cyberdeck-pi4/ups/ups_daemon.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cyberdeck-ups
+
+# Run as root — required for I2C bus access and writing to /run/
+User=root
+Group=root
+
+# Create the runtime directory on start
+RuntimeDirectory=cyberdeck-pi4
+RuntimeDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target

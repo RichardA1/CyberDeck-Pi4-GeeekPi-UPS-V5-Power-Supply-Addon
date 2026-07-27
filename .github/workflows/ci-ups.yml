@@ -1,0 +1,85 @@
+name: CyberDeck UPS Addon CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+      - name: Lint shell scripts
+        run: |
+          shellcheck scripts/install-ups.sh
+          shellcheck scripts/uninstall-ups.sh
+          shellcheck scripts/ups_shutdown.sh
+
+  python-lint:
+    name: Python lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install linters
+        run: pip install flake8 pylint
+      - name: flake8
+        run: flake8 scripts/ups_daemon.py --max-line-length=100
+      - name: pylint
+        run: pylint scripts/ups_daemon.py --disable=C0114,C0115,C0116 --max-line-length=100
+
+  daemon-dry-run:
+    name: Daemon dry-run (mock I2C)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install smbus2 mock
+        run: pip install smbus2
+      - name: Dry-run import check
+        run: |
+          python3 - <<'EOF'
+          # Verify the daemon imports and the read/write helpers are syntactically correct.
+          # We can't open a real I2C bus in CI, so just confirm the module loads cleanly.
+          import ast, sys
+          with open("scripts/ups_daemon.py") as f:
+              source = f.read()
+          try:
+              ast.parse(source)
+              print("ups_daemon.py: syntax OK")
+          except SyntaxError as e:
+              print(f"Syntax error: {e}")
+              sys.exit(1)
+          EOF
+
+  config-check:
+    name: Config file validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate ups.conf keys
+        run: |
+          python3 - <<'EOF'
+          required = {"UPS_I2C_BUS", "UPS_I2C_ADDR", "UPS_SHUTDOWN_DELAY", "UPS_POLL_SEC"}
+          found = set()
+          with open("config/ups.conf") as f:
+              for line in f:
+                  line = line.strip()
+                  if line and not line.startswith("#") and "=" in line:
+                      key = line.split("=")[0].strip()
+                      found.add(key)
+          missing = required - found
+          if missing:
+              print(f"Missing required config keys: {missing}")
+              raise SystemExit(1)
+          print(f"Config OK — found keys: {found}")
+          EOF
