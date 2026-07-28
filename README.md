@@ -118,7 +118,7 @@ sudo i2cget -y 1 0x17 0x03   # pogopin voltage low byte — should be non-zero
 ## Install
 
 ```bash
-git clone https://github.com/your-org/cyberdeck-pi4-ups-addon.git
+git clone https://github.com/RichardA1/cyberdeck-pi4-ups-addon.git
 cd cyberdeck-pi4-ups-addon
 sudo ./scripts/install-ups.sh
 ```
