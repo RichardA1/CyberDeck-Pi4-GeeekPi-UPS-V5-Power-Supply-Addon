@@ -37,7 +37,7 @@ header "CyberDeck Pi4 — Power Management Installer"
 # Install power.html
 # ---------------------------------------------------------------------------
 header "Step 1 — Install power.html"
-install -m 644 "$REPO_DIR/power.html" "$WEB_ROOT/power.html"
+install -m 644 "$REPO_DIR/../web/power.html" "$WEB_ROOT/power.html"
 chown www-data:webedit "$WEB_ROOT/power.html" 2>/dev/null || true
 ok "Installed: $WEB_ROOT/power.html"
 
@@ -118,7 +118,7 @@ nginx -t && systemctl reload nginx && ok "nginx reloaded"
 # Install and start the service
 # ---------------------------------------------------------------------------
 header "Step 6 — Enable cyberdeck-power-api.service"
-install -m 644 "$REPO_DIR/cyberdeck-power-api.service" \
+install -m 644 "$REPO_DIR/../config/cyberdeck-power-api.service" \
                /etc/systemd/system/cyberdeck-power-api.service
 systemctl daemon-reload
 systemctl enable --now cyberdeck-power-api
