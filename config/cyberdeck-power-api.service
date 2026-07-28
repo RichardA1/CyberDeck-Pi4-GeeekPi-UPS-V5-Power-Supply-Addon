@@ -1,0 +1,18 @@
+[Unit]
+Description=CyberDeck Pi4 Power Management API
+After=network.target cyberdeck-ups.service
+Wants=cyberdeck-ups.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/cyberdeck-pi4/power/power-api.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cyberdeck-power-api
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
