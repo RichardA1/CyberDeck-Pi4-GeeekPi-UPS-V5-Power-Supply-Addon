@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberDeck — Power Management</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+/* ===== POWER PAGE EXTRAS ===== */
+.page-title { font-size: 20px; font-weight: bold; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 3px; text-shadow: 0 0 8px var(--glow-cyan); margin-bottom: 2px; }
+.page-subtitle { font-size: 10px; color: var(--text-secondary); margin-bottom: 16px; }
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat-tile { background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 10px 12px; text-align: center; }
+.stat-value { font-size: 20px; font-weight: bold; color: var(--accent-cyan); text-shadow: 0 0 6px var(--glow-cyan); }
+.stat-label { font-size: 9px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+/* Battery arc */
+.battery-arc-wrap { display: flex; flex-direction: column; align-items: center; padding: 8px 0 4px; }
+.battery-arc-svg { width: 140px; height: 80px; }
+.battery-pct-label { font-size: 28px; font-weight: bold; color: var(--accent-cyan); text-shadow: 0 0 10px var(--glow-cyan); line-height: 1; }
+.battery-status-label { font-size: 9px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 2px; }
+
+/* Voltage rows */
+.volt-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid rgba(0,255,255,0.06); font-size: 11px; }
+.volt-row:last-child { border-bottom: none; }
+.volt-key { color: var(--text-secondary); font-size: 9px; text-transform: uppercase; letter-spacing: 1px; }
+.volt-val { color: var(--accent-cyan); font-weight: bold; }
+.volt-val.good { color: var(--accent-green); }
+.volt-val.warn { color: var(--accent-amber); }
+.volt-val.bad  { color: var(--accent-red); }
+
+/* Toggle switch */
+.toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
+.toggle-label { font-size: 11px; color: var(--text-primary); }
+.toggle-sublabel { font-size: 9px; color: var(--text-secondary); margin-top: 1px; }
+.toggle-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  left: 3px; top: 3px;
+  width: 16px; height: 16px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  transition: transform 0.3s, background 0.3s, box-shadow 0.3s;
+}
+.toggle-switch input:checked + .toggle-track {
+  background: rgba(0,255,65,0.15);
+  border-color: var(--accent-green);
+  box-shadow: 0 0 8px var(--glow-green);
+}
+.toggle-switch input:checked + .toggle-track::after {
+  transform: translateX(20px);
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--glow-green);
+}
+
+/* Threshold slider */
+.threshold-wrap { margin-top: 4px; }
+.threshold-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.threshold-title { font-size: 11px; color: var(--text-primary); }
+.threshold-val { font-size: 18px; font-weight: bold; color: var(--accent-amber); text-shadow: 0 0 6px var(--glow-amber); }
+.threshold-sublabel { font-size: 9px; color: var(--text-secondary); margin-bottom: 8px; }
+.threshold-track { position: relative; }
+input[type="range"].threshold-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 6px;
+  background: var(--bg-input);
+  border: 1px solid rgba(255,170,0,0.2);
+  border-radius: 3px;
+  outline: none;
+}
+input[type="range"].threshold-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+  box-shadow: 0 0 8px var(--glow-amber);
+  cursor: pointer;
+}
+.threshold-ticks { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-secondary); margin-top: 4px; padding: 0 2px; }
+.save-btn { margin-top: 10px; }
+
+/* Shutdown section */
+.shutdown-confirm { display: none; margin-top: 10px; padding: 10px; background: rgba(255,51,102,0.08); border: 1px solid var(--accent-red); border-radius: 4px; }
+.shutdown-confirm.visible { display: block; }
+.shutdown-warn { color: var(--accent-red); font-size: 11px; margin-bottom: 8px; line-height: 1.5; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-cyan);
+  border-radius: 4px;
+  padding: 10px 16px;
+  font-size: 11px;
+  color: var(--accent-cyan);
+  box-shadow: 0 0 16px var(--glow-cyan);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s, transform 0.3s;
+  z-index: 500;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.error { border-color: var(--accent-red); color: var(--accent-red); box-shadow: 0 0 16px rgba(255,51,102,0.4); }
+.toast.success { border-color: var(--accent-green); color: var(--accent-green); box-shadow: 0 0 16px var(--glow-green); }
+
+/* Info row for charge ports */
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 11px; border-bottom: 1px solid rgba(0,255,255,0.05); }
+.info-row:last-child { border-bottom: none; }
+.info-key { color: var(--text-secondary); font-size: 9px; text-transform: uppercase; letter-spacing: 1px; }
+.info-val { color: var(--text-bright); }
+
+@media (max-width: 700px) {
+  .stat-row { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav class="tab-rail">
+  <a class="tab" href="/">Home</a>
+  <div class="tab-divider"></div>
+  <a class="tab" href="/devices.html">Devices</a>
+  <div class="tab-divider"></div>
+  <a class="tab" href="/mqtt.html">MQTT</a>
+  <div class="tab-divider"></div>
+  <a class="tab active" href="/power.html">Power</a>
+</nav>
+
+<header class="header">
+  <div class="header-left">
+    <div class="status-dot pulse-dot" id="header-dot"></div>
+    <span class="status-text" id="header-status">LOADING</span>
+  </div>
+  <div class="header-right">
+    <span class="mode-badge">🔒 ISOLATED</span>
+    <span class="project-title">CYBERDECK</span>
+  </div>
+</header>
+
+<main class="page-content">
+  <div class="page-title">Power Management</div>
+  <div class="page-subtitle" id="last-update">Fetching UPS data...</div>
+
+  <!-- Stat tiles -->
+  <div class="stat-row">
+    <div class="stat-tile">
+      <div class="stat-value" id="s-pct">—</div>
+      <div class="stat-label">Battery %</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-value" id="s-volts">—</div>
+      <div class="stat-label">Batt Voltage</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-value" id="s-pi-v">—</div>
+      <div class="stat-label">Pi Rail</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-value" id="s-temp">—</div>
+      <div class="stat-label">Batt Temp</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+
+    <!-- Battery status card -->
+    <div class="card">
+      <div class="card-header">Battery Status</div>
+      <div class="battery-arc-wrap">
+        <svg class="battery-arc-svg" viewBox="0 0 140 80">
+          <!-- Background arc -->
+          <path d="M 10 75 A 60 60 0 0 1 130 75" fill="none" stroke="rgba(0,255,255,0.1)" stroke-width="10" stroke-linecap="round"/>
+          <!-- Fill arc -->
+          <path id="arc-fill" d="M 10 75 A 60 60 0 0 1 130 75" fill="none" stroke="#00ff41" stroke-width="10" stroke-linecap="round"
+            stroke-dasharray="188.5" stroke-dashoffset="188.5"/>
+        </svg>
+        <div class="battery-pct-label" id="arc-pct">—%</div>
+        <div class="battery-status-label" id="arc-status">UNKNOWN</div>
+      </div>
+      <div style="margin-top:8px;">
+        <div class="volt-row">
+          <span class="volt-key">Charge Source</span>
+          <span class="volt-val" id="charge-source">—</span>
+        </div>
+        <div class="volt-row">
+          <span class="volt-key">Health</span>
+          <span class="volt-val" id="batt-health">—</span>
+        </div>
+        <div class="volt-row">
+          <span class="volt-key">Temperature</span>
+          <span class="volt-val" id="batt-temp-val">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Voltage rails card -->
+    <div class="card">
+      <div class="card-header">Voltage Rails</div>
+      <div class="volt-row">
+        <span class="volt-key">Pi 5V Rail (Pogopin)</span>
+        <span class="volt-val" id="v-pogo">—</span>
+      </div>
+      <div class="volt-row">
+        <span class="volt-key">Battery Terminal</span>
+        <span class="volt-val" id="v-batt">—</span>
+      </div>
+      <div class="volt-row">
+        <span class="volt-key">MCU Internal</span>
+        <span class="volt-val" id="v-mcu">—</span>
+      </div>
+      <div class="volt-row">
+        <span class="volt-key">USB-C Port</span>
+        <span class="volt-val" id="v-usbc">—</span>
+      </div>
+      <div class="volt-row">
+        <span class="volt-key">MicroUSB Port</span>
+        <span class="volt-val" id="v-musb">—</span>
+      </div>
+      <div class="volt-row" style="margin-top:8px;">
+        <span class="volt-key">Pi Rail Health</span>
+        <span class="volt-val" id="pi-health">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Power controls card -->
+  <div class="card">
+    <div class="card-header">Power Controls</div>
+
+    <!-- Low power mode toggle -->
+    <div class="toggle-row" style="border-bottom: 1px solid rgba(0,255,255,0.06); padding-bottom: 12px; margin-bottom: 12px;">
+      <div>
+        <div class="toggle-label">Low Power Mode</div>
+        <div class="toggle-sublabel">Disables the public WiFi AP to reduce load. GPIO 23.</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-lowpower" onchange="setLowPower(this.checked)">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <!-- Back-To-AC toggle -->
+    <div class="toggle-row" style="border-bottom: 1px solid rgba(0,255,255,0.06); padding-bottom: 12px; margin-bottom: 12px;">
+      <div>
+        <div class="toggle-label">Back-To-AC Auto Power-On</div>
+        <div class="toggle-sublabel">UPS auto-starts the Pi when charger reconnects. Register 0x19.</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-backtoac" onchange="setBackToAC(this.checked)">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <!-- Auto-shutdown threshold -->
+    <div class="threshold-wrap">
+      <div class="threshold-header">
+        <div>
+          <div class="toggle-label">Auto-Shutdown Threshold</div>
+          <div class="threshold-sublabel">UPS daemon shuts down the Pi when battery drops to this level.</div>
+        </div>
+        <div class="threshold-val"><span id="threshold-display">15</span>%</div>
+      </div>
+      <div class="threshold-track">
+        <input type="range" class="threshold-slider" id="threshold-slider"
+          min="5" max="50" step="5" value="15"
+          oninput="updateThresholdDisplay(this.value)">
+        <div class="threshold-ticks">
+          <span>5%</span><span>10%</span><span>15%</span><span>20%</span>
+          <span>25%</span><span>30%</span><span>35%</span><span>40%</span>
+          <span>45%</span><span>50%</span>
+        </div>
+      </div>
+      <button class="btn btn-amber btn-sm save-btn" onclick="saveThreshold()">Save Threshold</button>
+    </div>
+  </div>
+
+  <!-- Shutdown card -->
+  <div class="card">
+    <div class="card-header">System Control</div>
+    <button class="btn btn-danger" id="shutdown-btn" onclick="showShutdownConfirm()">⏻ Shutdown Server</button>
+    <div class="shutdown-confirm" id="shutdown-confirm">
+      <div class="shutdown-warn">
+        This will trigger a UPS-safe shutdown. The Pi will halt cleanly then the UPS
+        will cut board power after 20 seconds. You must physically press the UPS power
+        button to restart.
+      </div>
+      <button class="btn btn-danger" onclick="doShutdown()">Confirm Shutdown</button>
+      <button class="btn" onclick="hideShutdownConfirm()" style="margin-left:8px;">Cancel</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+var POLL_MS    = 15000;
+var UPS_URL    = '/ups-status.json';
+var poller     = null;
+var lastData   = null;
+
+// Arc geometry: total arc length for the semicircle path
+var ARC_LEN = 188.5;
+
+// ---------------------------------------------------------------------------
+// Poll UPS status
+// ---------------------------------------------------------------------------
+function poll() {
+  fetch(UPS_URL + '?_=' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(d) { render(d); })
+    .catch(function() { renderOffline(); });
+}
+
+function render(d) {
+  lastData = d;
+  if (!d || !d.available) { renderOffline(); return; }
+
+  var b = d.battery;
+  var pi = d.pi;
+  var mcu = d.mcu;
+  var ports = d.charge_ports;
+
+  // Header
+  document.getElementById('header-status').textContent = 'ONLINE';
+  document.getElementById('header-dot').style.background = 'var(--accent-green)';
+  document.getElementById('last-update').textContent =
+    'Last updated: ' + new Date().toLocaleTimeString();
+
+  // Stat tiles
+  setText('s-pct',   b.percent + '%');
+  setText('s-volts', b.voltage.toFixed(3) + 'V');
+  setText('s-pi-v',  pi.voltage.toFixed(3) + 'V');
+  setText('s-temp',  mcu.temp_c + '°C');
+
+  // Battery arc
+  var pct = Math.max(0, Math.min(100, b.percent));
+  var offset = ARC_LEN - (ARC_LEN * pct / 100);
+  var arcFill = document.getElementById('arc-fill');
+  arcFill.style.strokeDashoffset = offset;
+  arcFill.style.stroke = pct > 40 ? 'var(--accent-green)' :
+                         pct > 20 ? 'var(--accent-amber)' : 'var(--accent-red)';
+  setText('arc-pct', pct + '%');
+
+  var statusText = b.charging ? ('CHARGING via ' + b.charge_source.toUpperCase()) : 'DISCHARGING';
+  setText('arc-status', statusText);
+
+  // Battery detail
+  var sourceLabel = b.charge_source === 'none' ? 'None (on battery)' : b.charge_source.toUpperCase();
+  colorVal('charge-source', sourceLabel, b.charging ? 'good' : '');
+  colorVal('batt-health',   b.health.toUpperCase(), b.health);
+  colorVal('batt-temp-val', mcu.temp_c + '°C',
+    mcu.temp_c > 55 ? 'warn' : mcu.temp_c > 60 ? 'bad' : 'good');
+
+  // Voltage rails
+  colorVal('v-pogo', pi.voltage.toFixed(3) + 'V', pi.voltage_health);
+  colorVal('v-batt', (b.voltage_mv / 1000).toFixed(3) + 'V',
+    b.voltage_mv > 3600 ? 'good' : b.voltage_mv > 3400 ? 'warn' : 'bad');
+  colorVal('v-mcu',  (mcu.voltage_mv / 1000).toFixed(3) + 'V', 'good');
+  colorVal('v-usbc', ports.usbc_mv > 100 ?
+    (ports.usbc_mv / 1000).toFixed(2) + 'V' : 'Not connected', ports.usbc_mv > 100 ? 'good' : '');
+  colorVal('v-musb', ports.musb_mv > 100 ?
+    (ports.musb_mv / 1000).toFixed(2) + 'V' : 'Not connected', ports.musb_mv > 100 ? 'good' : '');
+  colorVal('pi-health', pi.voltage_health.toUpperCase(), pi.voltage_health);
+
+  // Back-To-AC toggle state (read from UPS register)
+  document.getElementById('toggle-backtoac').checked = mcu.back_to_ac;
+}
+
+function renderOffline() {
+  document.getElementById('header-status').textContent = 'UPS OFFLINE';
+  document.getElementById('header-dot').style.background = 'var(--accent-red)';
+  document.getElementById('last-update').textContent = 'UPS data unavailable';
+  ['s-pct','s-volts','s-pi-v','s-temp','arc-pct','v-pogo','v-batt',
+   'v-mcu','v-usbc','v-musb','pi-health','charge-source','batt-health',
+   'batt-temp-val'].forEach(function(id) { setText(id, '—'); });
+  setText('arc-status', 'UNAVAILABLE');
+}
+
+// ---------------------------------------------------------------------------
+// Controls
+// ---------------------------------------------------------------------------
+function setLowPower(on) {
+  fetch('/api/lowpower', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({enabled: on})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    toast(on ? 'Low power mode enabled' : 'Low power mode disabled', 'success');
+  })
+  .catch(function() {
+    toast('Failed to set low power mode', 'error');
+    // Revert toggle on failure
+    document.getElementById('toggle-lowpower').checked = !on;
+  });
+}
+
+function setBackToAC(on) {
+  fetch('/api/ups/backtoac', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({enabled: on})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    toast('Back-To-AC ' + (on ? 'enabled' : 'disabled'), 'success');
+  })
+  .catch(function() {
+    toast('Failed to set Back-To-AC', 'error');
+    document.getElementById('toggle-backtoac').checked = !on;
+  });
+}
+
+function updateThresholdDisplay(val) {
+  document.getElementById('threshold-display').textContent = val;
+}
+
+function saveThreshold() {
+  var val = document.getElementById('threshold-slider').value;
+  fetch('/api/ups/threshold', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({threshold: parseInt(val)})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    toast('Auto-shutdown threshold saved: ' + val + '%', 'success');
+  })
+  .catch(function() {
+    toast('Failed to save threshold', 'error');
+  });
+}
+
+function showShutdownConfirm() {
+  document.getElementById('shutdown-confirm').classList.add('visible');
+  document.getElementById('shutdown-btn').disabled = true;
+}
+
+function hideShutdownConfirm() {
+  document.getElementById('shutdown-confirm').classList.remove('visible');
+  document.getElementById('shutdown-btn').disabled = false;
+}
+
+function doShutdown() {
+  fetch('/api/shutdown', { method: 'POST' })
+    .then(function() {
+      toast('Shutdown initiated — UPS will cut power in 20s', 'error');
+      hideShutdownConfirm();
+    })
+    .catch(function() {
+      toast('Shutdown command sent', 'success');
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function setText(id, val) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function colorVal(id, text, health) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'volt-val';
+  if (health === 'good')    el.classList.add('good');
+  else if (health === 'warn' || health === 'warning') el.classList.add('warn');
+  else if (health === 'bad' || health === 'low')      el.classList.add('bad');
+}
+
+var toastTimer = null;
+function toast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() { el.className = 'toast'; }, 3000);
+}
+
+// ---------------------------------------------------------------------------
+// Load saved threshold from server config
+// ---------------------------------------------------------------------------
+function loadThreshold() {
+  fetch('/api/ups/threshold')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.threshold) {
+        document.getElementById('threshold-slider').value = d.threshold;
+        document.getElementById('threshold-display').textContent = d.threshold;
+      }
+    })
+    .catch(function() {}); // silently ignore if endpoint not ready yet
+}
+
+// ---------------------------------------------------------------------------
+// Start
+// ---------------------------------------------------------------------------
+loadThreshold();
+poll();
+poller = setInterval(poll, POLL_MS);
+</script>
+</body>
+</html>
