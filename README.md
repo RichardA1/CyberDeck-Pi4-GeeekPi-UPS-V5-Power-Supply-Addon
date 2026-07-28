@@ -5,6 +5,10 @@ Integrates the GeeekPi UPS Plus V5 HAT (EP-0136) with the CyberDeck stack: UPS-a
 shutdown, live battery telemetry on the TFT panel and web UI, and a polling daemon that
 bridges the UPS over I2C to the rest of the system.
 
+<img width="397" height="293" alt="TFT Display" src="https://github.com/user-attachments/assets/ad275c0c-94ab-4c85-a2d7-14420e6147a4" />
+
+<img width="725" height="582" alt="AP Web Power Pannel" src="https://github.com/user-attachments/assets/0536bdbe-c3b9-4184-b0d2-52baa8d0591a" />
+
 ---
 
 > ⚠️ **DO NOT plug a power supply into the Raspberry Pi's own USB-C port while the UPS
